@@ -1,0 +1,283 @@
+---
+title: "Project_1"
+author: "Wancen_Mu"
+date: "2018Äê9ÔÂ19ÈÕ"
+output: html_document
+---
+
+```{r setup, echo=FALSE,include=FALSE}
+library(knitr)
+library(COUNT)
+library(DAAG)
+library(Ecdat)
+
+data("spam7")
+data("rwm5yr")
+data("Computers")
+library(tidyverse)
+library(ggplot2)
+library(plotly)
+```
+***
+
+#Dataset1: rwm5yr
+It includes:
+
+>German health registry for the years 1984-1988. Health information for years immediately prior to health reform.
+
+The entire dataset consists of:
+
+>A data frame with 19,609 observations on the following 17 variables.
+
+The original source of dataset is:
+
+>German Health Reform Registry, years pre-reform 1984-1988, in Hilbe and Greene (2007)
+
+###Produce a figure
+
+```{r warning=FALSE}
+rwm5yr<-as_tibble(rwm5yr) 
+  rwm5yr2<-filter(rwm5yr,docvis>=1)
+p1<-ggplot(data=rwm5yr2,mapping=aes(x=factor(edlevel),y=docvis))+
+  geom_boxplot(aes(colour=factor(cut_number(age,4))))+
+  coord_cartesian(ylim=c(0,50))+
+  labs(
+    x="Education level",
+    y="Number of visits to doctor during year",
+    colour="Age"
+  )
+ggplotly(p1) %>%  layout(boxmode = "group")
+
+rwm5yr2 %>% 
+  group_by(edlevel) %>% 
+  summarise(docvi_mean=mean(docvis)) %>% knitr::kable(caption = "Mean of education level")
+rwm5yr2 %>% 
+  group_by(cut_number(age,4)) %>% 
+  summarise(age_mean=mean(docvis)) %>% knitr::kable(caption = "Mean of age group")
+
+```
+
+###Summmary
+
+>From the boxplot and mean table above, we find that within each education level group, the median of `docvis`, IQR and mean of 4 age group all almost turns larger which implies people have more possibility to see doctor when they get old. And I think it is consistent with reality that people easily get sick when they are older.
+In addition, we clearly find that educational level 1 has more outliers than the other 3 group which is an interesting discover. Also we can see there is a difference in their means, with the higher education level has the lower visits to doctor.
+
+>The next step is better to look at different job types of each education level to think about whether the jobs that the higher education level people doing can less get sick. Maybe the reason of education level 1 has more possibility to see a doctor is because most of them are doing a kind of job which can easily get ill.
+
+***
+#Dataset2: spam7
+
+It includes:
+
+>The data consist of 4601 email items, of which 1813 items were identified as spam.
+
+The entire dataset consists of:
+
+>This data frame contains of 7 variables.
+
+The original source of dataset is:
+
+>George Forman, Hewlett-Packard Laboratories
+
+I want to looking for which variables could help judging whether an email is a spam email or not.
+At first, we view the dataset `spam7` and find that order of magnitude of the  `crl.tot` is diierent from the rest variables. So I draw two figures to split analysing factors.
+
+###Produce a figure
+```{r warning=FALSE}
+
+Spam7<-as_tibble(spam7)
+spam7_New<-Spam7 
+spam7_New<-mutate(spam7_New,
+  Total_anomal=dollar + bang +
+   money + n000 + make
+  ) 
+p2<-ggplot(data=spam7_New)+
+  geom_boxplot(aes(y=crl.tot,x=yesno))+
+    scale_x_discrete(labels = c("not spam", "spam"))+
+  ylim(c(0,3000))+
+  labs(
+    title=paste("Spam email has more capitals in words"),
+    y="Total length of words in capitals",
+    x="Email"
+  )
+ggplotly(p2)
+ggplot(data=spam7_New)+
+  geom_boxplot(aes(x=yesno,y=Total_anomal,color=factor(cut_width(dollar,3))))+
+  ylim(c(0,10))+
+  scale_x_discrete(labels = c("not spam", "spam"))+
+  labs(
+    title=paste("Spam email has more abnormal symbol and specific words"),
+    y="Total anomalies",
+    x="Email"
+  )
+
+spam7_New %>% 
+  group_by(yesno) %>% 
+  summarise_all(funs(mean))%>% knitr::kable(caption = "Mean of each factor",align = c("c","c"))
+```
+
+###Summmary
+
+>From the first boxplot, we find that not only the IQR but also the box height in spam group both are higher than not spam group. Also the last table shows that the mean of capitals length of spam emails is much larger than regualr emails.
+From the second boxplot and the last table, we know that spam emails usually have more anomalies, like $\$$,$!$,'money','000' and 'make'. Particularly, if $\$$ was mentioned more than 4 times in an email, it has significately probability to be a spam email.
+
+>A good next step to further investigate is to find better combination of these fators and other possible characteristics of spam emails that can predict a spam email more exactly.
+
+***
+#Dataset3: Computers
+
+It includes:
+
+>Prices of Personal Computers from 1993 to 1995 in United States.
+
+The entire dataset consists of:
+
+>This data frame contains of 6259 observations and 10 variables.
+
+The original source of dataset is:
+
+>Stengos, T. and E. Zacharias (2005) ¡°Intertemporal pricing and price discrimination : a semiparametric hedonic analysis of the personal computer market¡±, Journal of Applied Econometrics, forthcoming.
+
+###Produce a figure
+
+At first, we assume that price of personal computers varies with 7 variables, included `speed`,`hd`,`ram`,`screen`,`cd`,`multi`,`premium`. So we select computers whose manufacturer was a "premium" firm without CD-ROM and do not have multimedia to contral variables. By comparing order of magnitudes of numeric variables, we simply choose `speed`, `ram` and `screen` to construct simple model. In addition, I swap what will displayed on the y-axis to easier make the comparison.
+
+```{r}
+#explore how the price of computer varies with several variables, like speed, ram, screen
+Computers2<-filter(Computers,premium=='yes'&multi=='no'&cd=='no') %>% 
+  mutate(
+    Total_factor=speed+ram+screen
+  )
+p3<-ggplot(data = Computers2,aes(x=price,y=..density..))+
+    geom_freqpoly(aes(color=cut_number(Total_factor,4)),size=1,binwidth=100)
+ggplotly(p3)
+p4<-ggplot(data = Computers2)+
+    geom_boxplot(aes(x=reorder(cut_number(Total_factor,4),price,FUN=median),y=price))+
+  labs(
+    x="Factors(speed+ram+screen)",
+    y="Price"
+  )
+ggplotly(p4)
+```
+  But it is hard to tell their relationship from frequency polygons. It appears that computers have different factors almost have similar price distribution and average price except the red line. Its messy pattern can also see from the boxplot that order of the second and third box is not what we expected. Maybe it is because `hd` and `price`, and `hd` and `Total_factors` are tightly related. Because all of the variables can affect computer speed and speed could affect computer price.
+
+###Optimizing models
+
+So I use a model to remove the relationship between `hd` and `price`and reorder `Total_factors` based on the median value of `so that we can better explore the relationship between `Total_factors` and `price`.
+```{r}
+#fit a model that predict price from ram and computes the residuals
+library(modelr)
+mod<-lm(log(price)~log(hd),data=Computers2)
+computers<-as_tibble(Computers2) %>% 
+  add_residuals(mod) %>% 
+  mutate(resid=exp(resid))
+  ggplot(data=computers,mapping=aes(x=hd,y=resid))+
+  geom_point(alpha=0.1)
+#The residuals give us the view of the price of personal computers after the effect of ram has been removed
+  ggplot(data = computers)+
+    geom_boxplot(aes(x=reorder(cut_number(Total_factor,4),resid,FUN=median),y=resid))+
+    labs(
+      x="Factors(speed+ram+screen)",
+      y="Resid(price)"
+    )
+```
+
+###Summary
+
+>From the box plot, we could know that computers are more expensive when they have combinations of faster clock speed, larger sizer of Ram and larger screen as we expected,relative to size of hard drive.
+
+>Further step is to find more complex model rather than comparing the sum of the variables, judgeing which variable has more power and the percentage of price maybe affected.
+
+***
+#Dataset4:Garch
+
+It includes:
+
+>daily observations from 1980¨C01 to 1987¨C05¨C21
+
+The entire dataset consists of:
+
+>number of observations : 1867 and 8 variables.
+
+The original source of dataset is:
+
+>Verbeek, Marno (2004) A Guide to Modern Econometrics, John Wiley and Sons, chapter 8.
+
+I want to see the trend of exchange rate within different currency during a year. But the format of date is numeric yymmdd, so I minus year*10000 to make it shows month and day in different year consistently.
+
+###Produce a figure
+```{r}
+data("Garch")
+garch<-as_tibble(Garch)
+garch2<-mutate(garch,
+    date_af=ifelse(date%in%800101:801231,date-800000,
+                   ifelse(date%in%810101:811231,date-810000,
+                          ifelse(date%in%820101:821231,date-820000,
+                               ifelse(date%in%830101:831231,date-830000,
+                                      ifelse(date%in%840101:841231,date-840000,
+                                             ifelse(date%in%850101:851231,date-850000,
+                                                    ifelse(date%in%860101:861231,date-860000,date-870000))))))),
+    
+    year=ifelse(date%in%800101:801231,1980,
+                   ifelse(date%in%810101:811231,1981,
+                          ifelse(date%in%820101:821231,1982,
+                               ifelse(date%in%830101:831231,1983,
+                                      ifelse(date%in%840101:841231,1984,
+                                             ifelse(date%in%850101:851231,1985,
+                                                    ifelse(date%in%860101:861231,1986,1987)))))))
+  )
+
+#exchange rate of Dollar/Yen
+plot1<-ggplot(data = garch2,aes(x=date_af,y=dy,color=factor(year)))+
+  geom_point(size=0.5)+geom_smooth(method = 'glm',se=FALSE)+
+  scale_x_continuous(breaks=seq(101,1231,by=200))+   #show date from Jan01 to Dec31 with intervals every 2 months
+labs(
+  x="Date",
+  y="Exchange rate",
+  title="Exchange rate of Dollar/Yen",
+  color="Year"
+)
+
+#exchange rate Dollar/Deutsch Mark
+plot2<-ggplot(data = garch2,aes(x=date_af,y=dm,color=factor(year)))+
+  geom_point(size=0.5)+geom_smooth(method = 'glm',se=FALSE)+
+  scale_x_continuous(breaks=seq(101,1231,by=200))+   #show date from Jan01 to Dec31 with intervals every 2 months
+  labs(
+  x="Date",
+  y="Exchange rate",
+  title="Exchange rate of Dollar/Deutsch Mark",
+  color="Year"
+)
+
+#exchange rate of Dollar/British Pound
+plot3<-ggplot(data = garch2,aes(x=date_af,y=bp,color=factor(year)))+
+  geom_point(size=0.5)+geom_smooth(method = 'glm',se=FALSE)+
+  scale_x_continuous(breaks=seq(101,1231,by=200))+   #show date from Jan01 to Dec31 with intervals every 2 months
+  labs(
+  x="Date",
+  y="Exchange rate",
+  title="Exchange rate of Dollar/British Pound",
+  color="Year"
+)
+
+#exchange rate of Dollar/Canadian Dollar
+plot4<-ggplot(data = garch2,aes(x=date_af,y=cd,color=factor(year)))+
+  geom_point(size=0.5)+geom_smooth(method = 'glm',se=FALSE)+
+  scale_x_continuous(breaks=seq(101,1231,by=200))+  #show date from Jan01 to Dec31 with intervals every 2 months
+  labs(
+  x="Date",
+  y="Exchange rate",
+  title="Exchange rate of Dollar/Canadian Dollar",
+  color="Year"
+)
+
+# Places the four plots next to each other for easy visualization 
+cowplot::plot_grid(plot1, plot2,plot3,plot4, ncol=2)
+
+```
+
+###Summary
+
+>The above scatterplot shows the trend of exchange rate between dollar and Yen, Deutsch Mark, British Pound, Canadian Dollar in 1980-1987. In general, we find that the exchange rate of Dollar/Canadian Dollar move smoothly within each year. In addition, the exvhange rate in the rest 3 currancy has a common pattern that decreaseing among 1980-1984 and increasing among 1985-1987, particularly for the exchange rate of Dollar/Yen increasing rapidly.
+
+>An Interesting next step is to looking for breaking news happened during 1985 that can better interpret the abnormal condition. And compare the rate among different years as well as the date that the news happened can help people master and predict future trends of exchange rate.
